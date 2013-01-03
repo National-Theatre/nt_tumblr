@@ -1,0 +1,13 @@
+name = NT Tumblr Blocks
+description = Module for creating Tumblr quote blocks.
+core = 7.x
+; stylesheets[all][] =
+; scripts[] =
+; files[] =
+files[] = tumblr.inc
+dependencies[] = field
+dependencies[] = list
+package = "National Theatre"
+php = 5.3
+version = 7.x-1.0 
+; configure =

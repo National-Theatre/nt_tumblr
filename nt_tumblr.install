@@ -1,0 +1,177 @@
+<?php
+/**
+ * @file
+ * @copyright The Royal National Theatre
+ * @author John-Paul Drawneek
+ */
+
+/**
+ * Implements hook_schema().
+ *
+ * @return array
+ *   A schema definition structure array.
+ */
+function nt_tumblr_schema() {
+  return array(
+    'nt_tumblr_picked' => array(
+      'description' => 'Data for storing picked Tumblr Posts.',
+      'fields' => array(
+        'id' => array(
+          'description' => 'The primary identifier for a node row.',
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'nid' => array(
+          'description' => 'The identifier for the node this item belongs to.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'vid' => array(
+          'description' => 'The version for the node this item belongs to.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'tumblr_id' => array(
+          'description' => 'Tumblr id, which is a really long number',
+          'type' => 'varchar',
+          'length' => 128,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'message' => array(
+          'description' => 'The Tumblr message, stored for speed.',
+          'type' => 'text',
+          'size' => 'medium',
+          'not null' => TRUE,
+        ),
+        'created' => array(
+          'description' => 'The timestamp from when this was created.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'changed' => array(
+          'description' => 'The timestamp from when this was changed.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+      ),
+      'indexes' => array(
+        'node_changed' => array('changed'),
+        'node_created' => array('created'),
+        'node_nid' => array('nid'),
+        'node_vid' => array('vid'),
+      ),
+      'unique keys' => array(),
+      'foreign keys' => array(),
+      'primary key' => array('id'),
+    ),
+  );
+}
+/**
+ * Implements hook_field_schema().
+ *
+ * @param array $field
+ *   A field structure.
+ */
+function nt_tumblr_field_schema($field) {
+
+}
+/**
+ * Implements hook_install().
+ */
+function nt_tumblr_install() {
+  node_types_rebuild();
+  $types = node_type_get_types();
+  $nt_tumblr = $types['nt_tumblr'];
+  foreach (_nt_tumblr_installed_fields() as $field) {
+    field_create_field($field);
+  }
+  foreach (_nt_tumblr_installed_instances() as $instance) {
+    $instance['entity_type'] = 'node';
+    $instance['bundle'] = $nt_tumblr->type;
+    field_create_instance($instance);
+  }
+}
+/**
+ * Implements hook_uninstall().
+ */
+function nt_tumblr_uninstall() {
+  $sql = 'SELECT nid FROM {node} n WHERE n.type = :type';
+  $result = db_query($sql, array(':type' => 'nt_tumblr'));
+  $nids = array();
+  foreach ($result as $row) {
+    $nids[] = $row->nid;
+  }
+  node_delete_multiple($nids);
+  node_type_delete('nt_tumblr');
+
+  foreach (array_keys(_nt_tumblr_installed_fields()) as $field_name) {
+    field_delete_field($field_name);
+  }
+  field_purge_batch(1000);
+}
+/**
+ * NT Tumblr fields config.
+ * @access private
+ *
+ * @return array
+ *   instanaces config
+ */
+function _nt_tumblr_installed_fields() {
+  return array(
+    'nt_tumblr_blog' => array(
+      'field_name'  => 'nt_tumblr_blog',
+      'cardinality' => 1,
+      'type'        => 'text',
+    ),
+  );
+}
+/**
+ * NT Tumblr instances config.
+ * @access private
+ *
+ * @return array
+ *   instanaces config
+ */
+function _nt_tumblr_installed_instances() {
+  $t = get_t();
+  return array(
+    'nt_tumblr_blog' => array(
+      'field_name' => 'nt_tumblr_blog',
+      'label'       => $t('Tumblr blog.'),
+      'description' => $t('Tumblr blog to read from.'),
+      'widget'      => array(
+        'type'    => 'text_textfield',
+        'settings' => array(
+          'size' => 60,
+        ),
+      ),
+      'locked' => TRUE,
+    ),
+  );
+}
+/**
+ * Implements hook_enable().
+ */
+function nt_tumblr_enable() {
+  $mod_list = variable_get('nt_feed_data_types', array());
+  $mod_list['NtFeedTumblr'] = array(
+    'name' => 'Tumblr',
+    'module' => 'nt_tumblr',
+  );
+  variable_set('nt_feed_data_types', $mod_list);
+}
+/**
+ * Implements hook_enable().
+ */
+function nt_tumblr_disable() {
+  $mod_list = variable_get('nt_feed_data_types', array());
+  unset($mod_list['NtFeedTumblr']);
+  variable_set('nt_feed_data_types', $mod_list);
+}
