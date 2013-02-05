@@ -101,6 +101,7 @@ class NtFeedTumblr extends NtFeedData {
           'id' => $item->id,
           'html_id' => 'tweet_' . $item->id,
           'description' => drupal_substr(self::getDescription($item), 0, 50),
+          'url' => $item->{'url-with-slug'},
         );
          $this->dataKey[$item->id] = $store;
          $this->data[] = $this->dataKey[$item->id];
@@ -125,7 +126,7 @@ class NtFeedTumblr extends NtFeedData {
     $output = parent::render($id);
     $output['data']['type']['#value'] = $this->getId();
     $output['data']['feed_type']['#value'] = 'Tumblr';
-    $output['data']['label']['#markup'] = t($this->dataKey[$id]['description']);
+    $output['data']['label']['#markup'] = 'Tumblr - ' . t($this->dataKey[$id]['description']);
     $output['data']['del']['#name'] = __CLASS__ . '_' . $id . '_del';
     $output['data']['del']['#data']['type'] = $this->getId();
     return $output;
@@ -151,6 +152,7 @@ class NtFeedTumblr extends NtFeedData {
         'id' => $data->tumblelog->id,
         'html_id' => 'tweet_' . $data->tumblelog->id,
         'description' => drupal_substr(self::getDescription($data->tumblelog), 0, 50),
+        'url' => $data->{'url-with-slug'},
       );
       $this->dataKey[$data->tumblelog->id] = $store;
     }

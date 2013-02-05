@@ -423,6 +423,7 @@ function nt_tumblr_nt_feed_register_settings_form_alter(&$form, &$form_state) {
     );
   }
   $form['NtFeedTumblr']['add'] = array(
+    '#name' => 'NtFeedTumblrAdd',
     '#type' => 'submit',
     '#value' => t('More'),
     '#weight' => count($form['NtFeedTumblr']),
