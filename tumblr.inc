@@ -27,6 +27,9 @@ class NtFeedTumblr extends NtFeedData {
       case 'regular':
         $type = "regular-title";
         break;
+      case 'quote':
+        $type = "quote-text";
+        break;
       default:
         $type = $item->type . '-caption';
         break;
