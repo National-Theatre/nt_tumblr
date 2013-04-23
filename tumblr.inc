@@ -25,7 +25,7 @@ class NtFeedTumblr extends NtFeedData {
         $type = "link-description";
         break;
       case 'regular':
-        $type = "regular-title";
+        $type = "regular-body";
         break;
       case 'quote':
         $type = "quote-text";
