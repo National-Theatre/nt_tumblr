@@ -58,7 +58,7 @@ function nt_tumblr_link_pre(&$variables) {
   $url_list = explode('/', $link);
   $title_url = array_pop($url_list);
   $title = str_replace('-', ' ', $title_url);
-  $variables['link'] = l($title, $link);
+  $variables['link'] = l(ucfirst($title), $link);
 }
 /**
  * Implements hook_form().
