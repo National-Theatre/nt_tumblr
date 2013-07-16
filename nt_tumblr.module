@@ -7,9 +7,6 @@
 
 /**
  * Implements hook_node_info().
- *
- * @return array
- *   An array of information defining the module's node types.
  */
 function nt_tumblr_node_info() {
   return array(
@@ -24,29 +21,12 @@ function nt_tumblr_node_info() {
 }
 /**
  * Implements hook_menu().
- *
- * @return array
- *   Menu config
  */
 function nt_tumblr_menu() {
   return array();
 }
 /**
  * Implements hook_theme().
- *
- * @param string $existing
- *   An array of existing implementations that may be used for override
- *   purposes.
- * @param string $type
- *   Whether a theme, module, etc. is being processed.
- * @param string $theme
- *   The actual name of theme, module, etc. that is being being processed.
- * @param string $path
- *   The directory path of the theme or module, so that it doesn't need to be
- *   looked up.
- *
- * @return array
- *   An associative array of theme hook information.
  */
 function nt_tumblr_theme($existing, $type, $theme, $path) {
   return array(
@@ -55,37 +35,49 @@ function nt_tumblr_theme($existing, $type, $theme, $path) {
       'path' => $path . '/templates',
       'file' => 'theme.inc',
     ),
+    'nt_tumblr_link' => array(
+      'variables' => array('link' => NULL, 'node' => NULL),
+      'path' => $path . '/templates',
+      'template' => 'nt-tumblr-link',
+      'preprocess functions' => array('nt_tumblr_link_pre'),
+    ),
   );
 }
 /**
+ * Link block pre render helper.
+ *
+ * @param array $variables
+ *   Variables to render.
+ */
+function nt_tumblr_link_pre(&$variables) {
+  $variables['classes_array'] = array();
+  $variables['attributes_array'] = array();
+  $variables['title_attributes_array'] = array();
+  $variables['content_attributes_array'] = array();
+  $link = $variables['node']->tweet_list['tweet']['link'];
+  $url_list = explode('/', $link);
+  $title_url = array_pop($url_list);
+  $title = str_replace('-', ' ', $title_url);
+  $variables['link'] = l($title, $link);
+}
+/**
  * Implements hook_form().
- *
- * @param array $node
- *   The node being added or edited.
- * @param array $form_state
- *   The form state array.
- *
- * @return array
- *   An array containing the title and any custom form elements to be displayed
- *   in the node editing form.
  */
 function nt_tumblr_form($node, $form_state) {
-  $form = node_content_form($node, $form_state);
   $radio_default = NULL;
+  $form = node_content_form($node, $form_state);
+  if (isset($node->nt_tumblr_blog)) {
+    $form_state['values']['nt_tumblr_blog'][LANGUAGE_NONE][0]['value']
+      = $node->nt_tumblr_blog[LANGUAGE_NONE][0]['value'];
+    if (isset($node->tweet_list) && !empty($node->tweet_list)) {
+      $radio_default = $node->tweet_list['select_tweet'];
+    }
+  }
+  if (isset($form_state['values']['nt_tumblr_blog'])) {
+      _nt_tumblr_populate_posts($form, $form_state);
+  }
   if (!isset($form_state['nt_tumblr'])) {
-    if (isset($form_state['node'])
-      && isset($form_state['node']->nt_twitter_type)
-      && $form_state['node']->nt_twitter_type[LANGUAGE_NONE][0]['value'] == 'picked') {
-      $form_state['values']['nt_twitter_chnl']
-        = $form_state['node']->nt_twitter_chnl;
-      $form_state['values']['nt_twitter_hash']
-        = $form_state['node']->nt_twitter_hash;
-      $radio_default = $form_state['node']->tweet_list['select_tweet'];
-      _nt_twitter_populate_tweets($form, $form_state);
-    }
-    else {
-      $form_state['nt_tumblr'] = array();
-    }
+    $form_state['nt_tumblr'] = array();
   }
   if (!isset($form_state['nt_tumblr']['ordering'])) {
     $radios = array();
@@ -161,16 +153,16 @@ function nt_tumblr_list_posts_validate($form, &$form_state) {
  */
 function nt_tumblr_picked_posts_validate($form, &$form_state) {
 
-  $channel = $form_state['values']['nt_twitter_chnl'][LANGUAGE_NONE][0]['value'];
-  $hashtag = $form_state['values']['nt_twitter_hash'][LANGUAGE_NONE][0]['value'];
-  if (empty($channel) && empty($hashtag)) {
-    form_error($form['nt_twitter_chnl'], t('You must select either a channel or hashtag.'));
-    form_error($form['nt_twitter_hash'], 'See above');
-  }
-  if ($form_state['values']['nt_twitter_type'][LANGUAGE_NONE][0]['value'] == 'picked'
-    && empty($form_state['values']['tweet_list']['select_tweet'])) {
-    form_error($form['tweet_list'], t('You must select a tweet.'));
-  }
+//  $channel = $form_state['values']['nt_twitter_chnl'][LANGUAGE_NONE][0]['value'];
+//  $hashtag = $form_state['values']['nt_twitter_hash'][LANGUAGE_NONE][0]['value'];
+//  if (empty($channel) && empty($hashtag)) {
+//    form_error($form['nt_twitter_chnl'], t('You must select either a channel or hashtag.'));
+//    form_error($form['nt_twitter_hash'], 'See above');
+//  }
+//  if ($form_state['values']['nt_twitter_type'][LANGUAGE_NONE][0]['value'] == 'picked'
+//    && empty($form_state['values']['tweet_list']['select_tweet'])) {
+//    form_error($form['tweet_list'], t('You must select a tweet.'));
+//  }
 }
 /**
  * List tweets submit.
@@ -263,53 +255,44 @@ function _nt_tumblr_populate_posts($form, &$form_state) {
  *   The form state array.
  */
 function nt_tumblr_pack_save_submit($form, &$form_state) {
-  if ($form_state['values']['nt_twitter_type'][LANGUAGE_NONE][0]['value']
-    == 'picked') {
+  if (isset($form_state['nt_tumblr'])) {
     $form_state['values']['tweet_list']['tweet']
-      = $form_state['nt_twitter']['data'][$form_state['values']['tweet_list']['select_tweet']]['tweet'];
+      = $form_state['nt_tumblr']['data'][$form_state['values']['tumblr_list']['select_tweet']];
   }
+  elseif (isset($form_state['complete form']['tumblr_list'])) {
+    $form_state['values']['tweet_list']['tweet']
+      = $form_state['complete form']['tumblr_list']['#data']['data'][$form_state['values']['tumblr_list']['select_tweet']];
+  }
+  $form_state['values']['tweet_list']['select_tweet']
+    = $form_state['values']['tumblr_list']['select_tweet'];
 }
 /**
  * Implements hook_insert().
- *
- * This hook is invoked only on the module that defines the node's content type
- * (use hook_node_insert() to act on all node insertions).
- *
- * This hook is invoked from node_save() after the node is inserted into the
- * node table in the database, before field_attach_insert() is called, and
- * before hook_node_insert() is invoked.
- *
- * @param stdClass $node
- *   The node that is being created.
  */
 function nt_tumblr_insert($node) {
-  if ($node->nt_twitter_type[LANGUAGE_NONE][0]['value'] == 'picked') {
-    db_insert('nt_tumblr_picked')->fields(array(
-      'nid' => $node->nid,
-      'vid' => $node->vid,
-      'tweet_id' => $node->tweet_list['select_tweet'],
-      'tweet' => $node->tweet_list['tweet'],
-      'created' => time(),
-      'changed' => time(),
-    ))->execute();
-  }
+  db_insert('nt_tumblr_picked')->fields(array(
+    'id'        => NULL,
+    'nid'       => $node->nid,
+    'vid'       => $node->vid,
+    'tumblr_id' => $node->tweet_list['select_tweet'],
+    'message'   => serialize($node->tweet_list['tweet']),
+    'created'   => time(),
+    'changed'   => time(),
+  ))->execute();
 }
 /**
  * Implements hook_load().
- *
- * @param array $nodes
- *   An array of the nodes being loaded, keyed by nid.
  */
 function nt_tumblr_load($nodes) {
   foreach ($nodes as $nid => &$node) {
     $result = db_query(
-      "SELECT tweet_id, tweet FROM {nt_tumblr_picked} WHERE nid = :nid AND vid = :vid",
+      "SELECT tumblr_id, message FROM {nt_tumblr_picked} WHERE nid = :nid AND vid = :vid",
       array(':nid' => $nid, ':vid' => $node->vid)
     );
     $result = $result->fetch();
     if ($result) {
-      $node->tweet_list['select_tweet'] = $result->tweet_id;
-      $node->tweet_list['tweet'] = $result->tweet;
+      $node->tweet_list['select_tweet'] = $result->tumblr_id;
+      $node->tweet_list['tweet'] = unserialize($result->message);
     }
     else {
       $node->tweet_list = array();
@@ -318,61 +301,32 @@ function nt_tumblr_load($nodes) {
 }
 /**
  * Implements hook_update().
- *
- * This hook is invoked only on the module that defines the node's content type
- * (use hook_node_update() to act on all node updates).
- *
- * This hook is invoked from node_save() after the node is updated in the node
- * table in the database, before field_attach_update() is called, and before
- * hook_node_update() is invoked.
- *
- * @param stdClass $node
- *   The node that is being updated.
  */
 function nt_tumblr_update($node) {
+  //die('<pre>' . print_r($node, TRUE) . '</pre>');
   if ($node->vid == $node->original->vid) {
-    if ($node->nt_twitter_type[LANGUAGE_NONE][0]['value'] == 'picked') {
-      db_update('nt_tumblr_picked')->fields(array(
-        'tweet_id' => $node->tweet_list['select_tweet'],
-        'tweet' => $node->tweet_list['tweet'],
-        'changed' => time(),
-      ))
-        ->condition('nid', $node->nid)
-        ->condition('vid', $node->vid)
-        ->execute();
-    }
-    else {
-      db_delete('nt_twitter_picked')
+    db_update('nt_tumblr_picked')->fields(array(
+      'tumblr_id' => $node->tweet_list['select_tweet'],
+      'message' => serialize($node->tweet_list['tweet']),
+      'changed' => time(),
+    ))
       ->condition('nid', $node->nid)
       ->condition('vid', $node->vid)
       ->execute();
-    }
   }
   else {
-    if ($node->nt_twitter_type[LANGUAGE_NONE][0]['value'] == 'picked') {
-      db_insert('nt_tumblr_picked')->fields(array(
-        'nid' => $node->nid,
-        'vid' => $node->vid,
-        'tweet_id' => $node->tweet_list['select_tweet'],
-        'tweet' => $node->tweet_list['tweet'],
-        'created' => time(),
-        'changed' => time(),
-      ))->execute();
-    }
+    db_insert('nt_tumblr_picked')->fields(array(
+      'nid' => $node->nid,
+      'vid' => $node->vid,
+      'tumblr_id' => $node->tweet_list['select_tweet'],
+      'message' => serialize($node->tweet_list['tweet']),
+      'created' => time(),
+      'changed' => time(),
+    ))->execute();
   }
 }
 /**
  * Implements hook_delete().
- *
- * This hook is invoked only on the module that defines the node's content type
- * (use hook_node_delete() to respond to all node deletions).
- *
- * This hook is invoked from node_delete_multiple() after the node has been
- * removed from the node table in the database, before hook_node_delete() is
- * invoked, and before field_attach_delete() is called.
- *
- * @param stdClass $node
- *   The node that is being deleted.
  */
 function nt_tumblr_delete($node) {
   db_delete('nt_tumblr_picked')
@@ -381,11 +335,6 @@ function nt_tumblr_delete($node) {
 }
 /**
  * Implements hook_node_revision_delete().
- *
- * Remove revision data from twitter picked table.
- *
- * @param stdClass $node
- *   The node revision (node object) that is being deleted.
  */
 function nt_tumblr_revision_delete($node) {
   db_delete('nt_tumblr_picked')
@@ -393,7 +342,9 @@ function nt_tumblr_revision_delete($node) {
       ->condition('vid', $node->vid)
       ->execute();
 }
-
+/**
+ * Implements hook_nt_feed_register_settings_form_alter().
+ */
 function nt_tumblr_nt_feed_register_settings_form_alter(&$form, &$form_state) {
   if (!(isset($form_state['item']->config['NtFeedTumblr']))) {
     $form_state['item']->config['NtFeedTumblr'] = array(
@@ -444,5 +395,42 @@ function nt_tumblr_nt_feed_register_settings_defaults_alter(&$settings) {
   $settings['NtFeedTumblr'] = array();
   $settings['NtFeedTumblr'][0] = array(
     'screen_name' => 'ntlive',
+  );
+}
+/**
+ * Implements hook_block_info().
+ */
+function nt_tumblr_block_info() {
+  $result = db_query(
+    'SELECT * FROM {node} WHERE type = :type AND status = 1',
+    array(':type' => 'nt_tumblr')
+  );
+  $output = array();
+  foreach ($result as $tumblr) {
+    $output[$tumblr->nid] = array(
+      'info'       => '(Tumblr) ' . $tumblr->title,
+      'cache'      => DRUPAL_CACHE_PER_PAGE,
+    );
+  }
+  return $output;
+}
+/**
+ * Implements hook_block_view().
+ */
+function nt_tumblr_block_view($delta = '') {
+  $node = node_load($delta);
+  switch ($node->tweet_list['tweet']['type']) {
+    case 'link':
+      $theme = 'nt_tumblr_link';
+      break;
+    default:
+      $theme = '';
+  }
+  return array(
+    'subject' => NULL,
+    'content' => array(
+      '#theme' => $theme,
+      '#node'  => $node,
+    ),
   );
 }
