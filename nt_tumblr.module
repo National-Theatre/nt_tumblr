@@ -41,6 +41,12 @@ function nt_tumblr_theme($existing, $type, $theme, $path) {
       'template' => 'nt-tumblr-link',
       'preprocess functions' => array('nt_tumblr_link_pre'),
     ),
+    'nt_tumblr_text' => array(
+      'variables' => array('link' => NULL, 'message' => NULL, 'node' => NULL),
+      'path' => $path . '/templates',
+      'template' => 'nt-tumblr-text',
+      'preprocess functions' => array('nt_tumblr_text_pre'),
+    ),
   );
 }
 /**
@@ -59,6 +65,26 @@ function nt_tumblr_link_pre(&$variables) {
   $title_url = array_pop($url_list);
   $title = str_replace('-', ' ', $title_url);
   $variables['link'] = l(ucfirst($title), $link);
+}
+/**
+ * Text block pre render helper.
+ *
+ * @param array $variables
+ *   Variables to render.
+ */
+function nt_tumblr_text_pre(&$variables) {
+  $variables['classes_array'] = array();
+  $variables['attributes_array'] = array();
+  $variables['title_attributes_array'] = array();
+  $variables['content_attributes_array'] = array();
+  $link = $variables['node']->tweet_list['tweet']['link'];
+  $variables['message'] = truncate_utf8(
+    $variables['node']->tweet_list['tweet']['message'],
+    100,
+    TRUE,
+    TRUE
+  );
+  $variables['link'] = l('Read More', $link);
 }
 /**
  * Implements hook_form().
@@ -422,6 +448,9 @@ function nt_tumblr_block_view($delta = '') {
   switch ($node->tweet_list['tweet']['type']) {
     case 'link':
       $theme = 'nt_tumblr_link';
+      break;
+    case 'text':
+      $theme = 'nt_tumblr_text';
       break;
     default:
       $theme = '';
